@@ -1,0 +1,11 @@
+language: julia
+jobs:
+  include:
+      julia: 1.0.3
+      os: linux
+      script:
+        - julia -e 'import Pkg; Pkg.add("CSV"); Pkg.add("DataFrames"); Pkg.add("Rmath"); Pkg.add("Statistics"); Pkg.add("MultipleTesting");Pkg.add("Optim"); Pkg.add("StatsBase"); Pkg.add("Random")'
+        - julia test/test_TableProcessing.jl
+        - julia test/test_FindKm.jl
+        - julia test/test_Simulate.jl
+        - julia test/test_iPredict.jl
