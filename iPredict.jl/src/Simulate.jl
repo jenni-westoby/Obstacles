@@ -462,6 +462,78 @@ function PickCellVarIsoforms(numIsoforms, genesList, pObsDict,
     return output
 end
 
+function PickEqualProbabilities(numIsoforms, genesList, pObsDict,
+     pDropoutDict, numCells, NumSimulations, nameDistribution)
+
+     numGenes = length(genesList)
+     output = Array{Float64}(undef, NumSimulations, numGenes,numCells,numIsoforms)
+     sigma = 0.002
+
+     for sim in 1:NumSimulations
+
+         for i in 1:numGenes
+
+             #get dropout info and get pObs info
+             dropoutArr::Array{Float64, 1} = pDropoutDict[genesList[i]]
+
+             #Get pChoices
+             pChoiceArr::Array{Float64} = [0.25,0.25,0.25,0.25] #Equal probabilities
+
+             for j in 1:numCells
+
+                 cellpChoiceArr::Array{Float64} = []
+
+                 for iso in 1:length(pChoiceArr)
+
+                     mu = pChoiceArr[iso]
+
+                     #This condition ensures alpha and beta are positive.
+                     #If it is not fulfilled the beta distrubution is not
+                     #appropriate, so we just use the original probability.
+                     if nameDistribution == "Bernoulli"
+
+                         #find p(choice) for this cell by pulling from beta distribution
+                         CellChoice = rand(Bernoulli(0.25))
+                         push!(cellpChoiceArr, Float64(CellChoice))
+                    end
+
+                    if nameDistribution == "Normal"
+                        push!(cellpChoiceArr, rand(TruncatedNormal(mu, 0.06, 0.0, 1.0))) #sd chosen to get a large range but >0
+                    end
+                    if nameDistribution == "Uniform"
+                        push!(cellpChoiceArr, mu)
+                    end
+                end
+
+                #@show pObsArr
+                #@show pChoiceArr
+                #@show cellpChoiceArr
+                #@show numIsoforms
+
+                choices::Array{Int64} = []
+
+                if nameDistribution == "Bernoulli" && sum(cellpChoiceArr) == 1
+                    choices = findall(x -> x==1, cellpChoiceArr)
+                elseif nameDistribution == "Bernoulli" && sum(cellpChoiceArr) == 0
+                    cellpChoiceArr = [0.25,0.25,0.25,0.25]  #collapse back to uniform
+                    choices = sample(collect(1:length(cellpChoiceArr)),
+                    ProbabilityWeights(cellpChoiceArr),
+                    numIsoforms, replace = false)
+                else
+                    choices = sample(collect(1:length(cellpChoiceArr)),
+                    ProbabilityWeights(cellpChoiceArr),
+                    numIsoforms, replace = false)
+                end
+
+                 for k in 1:length(choices)
+                     output[sim,i,j,k] = dropoutArr[choices[k]]
+                end
+            end
+        end
+    end
+    return output
+end
+
 #Function that returns 4D array of pDropouts corresponding to isoform choice
 function pickIsoforms(IsoChoiceProbabilities, NumSimulations,
     genesList, rankingDict, pDropoutDict, numCells,
@@ -654,6 +726,21 @@ function globalArraySimulation(NumSimulations, genesList, rankingDict, pObsDict,
 
         IsoChoiceArr = PickCellVarIsoforms(NumIsoformsToSimulate, genesList,
         pObsDict, pDropoutDict, numCells, NumSimulations)
+
+    elseif choice_model == "Uniform"
+
+        IsoChoiceArr = PickEqualProbabilities(NumIsoformsToSimulate, genesList,
+        pObsDict, pDropoutDict, numCells, NumSimulations, "Uniform")
+
+    elseif choice_model == "Normal"
+
+        IsoChoiceArr = PickEqualProbabilities(NumIsoformsToSimulate, genesList,
+        pObsDict, pDropoutDict, numCells, NumSimulations, "Normal")
+
+    elseif choice_model == "Bernoulli"
+
+        IsoChoiceArr = PickEqualProbabilities(NumIsoformsToSimulate, genesList,
+        pObsDict, pDropoutDict, numCells, NumSimulations, "Bernoulli")
 
     else
         throw(ArgumentError("choice_model not recognised."))

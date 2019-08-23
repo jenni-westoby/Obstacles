@@ -8,6 +8,7 @@ import Fontconfig
 import DataFrames
 using Distributions
 using DelimitedFiles
+using HDF5, JLD
 
 #Set probability(FP|N) and probability(FN|P)
 pFN = 0.04
@@ -55,9 +56,25 @@ function pDropoutInfo(countsMatrixPath::String, GeneIsoTablePath::String,
 
     #Get ranking and dropout info for each gene
     pDropoutArr::Array{Float64} = []
+    pDropoutDict = Dict()
+    ExprArr::Array{Float64} =[]
+    ExprDict = Dict()
+
+
     for (key, value) in workingDict
+        ExprArr = []
+        for (k,v) in value
+            S = mean(v)
+            push!(ExprArr, S)
+        end
+
         append!(pDropoutArr, FindPDropout(value, Km))
+        pDropoutDict[key] = FindPDropout(value, Km)
+        ExprDict[key] = ExprArr
     end
+
+    save(output * "_dict.jld", "data", pDropoutDict)
+    save(output * "expr_dict.jld", "data", ExprDict)
 
     pDropoutDistributionPlot = pDropoutDistribution(pDropoutArr, output)
     params = fit(Beta, pDropoutArr)
