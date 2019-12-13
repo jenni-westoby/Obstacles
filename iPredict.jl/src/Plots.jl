@@ -7,6 +7,7 @@ using LinearAlgebra
 using Plots
 import GR
 using Plots.PlotMeasures
+#using Gadfly
 
 #Function to convert dictionary to dataframe
 function DictToDf(InputDict)
@@ -37,8 +38,12 @@ function OneGeneHistPlot(InputDict, singleGeneCounts, output)
     mean_val = MeanIsoPerGenePerCell(singleGeneCounts)
 
     test = Gadfly.plot(df, x = "value", color = "variable", xintercept = [mean_val],
-    Geom.histogram(position=:dodge), Geom.vline(color = "black"), Guide.xlabel("Mean isoforms per gene per cell"),
-    Guide.ylabel("Frequency"), Guide.colorkey(title = "Number of Isoforms"))
+    Geom.histogram(position=:dodge), Geom.vline(color = "black"),
+    Guide.xlabel("Mean isoforms per gene per cell", orientation=:horizontal),
+    Guide.ylabel("Frequency", orientation=:vertical),
+     Guide.colorkey(title = "Number of Isoforms"),
+    Theme(major_label_font_size=14Gadfly.pt,minor_label_font_size=14Gadfly.pt,
+    key_label_font_size=11Gadfly.pt, key_title_font_size=11Gadfly.pt))
 
     img = PNG(output)
     draw(img, test)
@@ -176,18 +181,19 @@ end
 function pDropoutDistribution(Arr, output)
 
     #Default dropout distribution
-    p1 = histogram(Arr, title = "Dropout Distribution", axis = (font(70)),
-    titlefontsize=70, margin = 10.0mm)
+    p1 = Plots.histogram(Arr, title = "Dropout Distribution", axis = (font(70)),
+    titlefontsize=70, margin = 10.0mm, bins = collect(0:0.05:1),
+    ylims = (0, 1000))
 
     #Beta distribution
     params = fit(Beta, Arr)
     @show params
 
     #plot Beta distribution
-    p2 = plot(0:0.01:1, pdf(Beta(params.α, params.β), 0:0.01:1),
+    p2 = Plots.plot(collect(0:0.01:1), pdf(Beta(params.α, params.β), 0:0.01:1),
     title = "Beta Distribution", axis = (font(70)), titlefontsize=70,
     margin = 10.0mm, linestyle=:solid, linealpha=0.5, linewidth=2*8,
-    xlabel = "p(Dropout)")
+    xlabel = "p(Dropout)", ylims = (0,3))
 
     #merge plots
     p_all = plot(p1,p2, layout = (2,1))

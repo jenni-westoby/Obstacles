@@ -1,6 +1,69 @@
 using Test
 include("../src/Simulate.jl")
 
+#########Test we can correctly find overlap#########
+
+#Make 3D detected array
+NumSimulations = 1
+numGenes = 1
+numCells = 1
+
+detectedArr = Array{Float64}(undef, NumSimulations, numGenes, numCells)
+
+#Check we can correctly find mean for 1 x 1 x 1 array
+detectedArr[1,1,1] = 1.0
+@test FindOverlap(detectedArr, 1, 1, 1) == [1.0]
+
+detectedArr[1,1,1] = 0
+@test FindOverlap(detectedArr, 1, 1, 1) == [0]
+
+#Check we can correctly find mean for 2 x 2 x 2 array
+NumSimulations = 2
+numGenes = 2
+numCells = 2
+
+detectedArr = Array{Float64}(undef, NumSimulations, numGenes, numCells)
+detectedArr[1,1,1] = 1.0
+detectedArr[1,1,2] = 0.0
+detectedArr[1,2,1] = 1.0
+detectedArr[1,2,2] = 0.0
+detectedArr[2,1,1] = 1.0
+detectedArr[2,1,2] = 0.0
+detectedArr[2,2,1] = 1.0
+detectedArr[2,2,2] = 0.0
+
+@test FindOverlap(detectedArr, 1, NumSimulations, numGenes) == [0.5, 0.5, 0.5, 0.5]
+
+detectedArr = Array{Bool}(undef, 1, 2, 2, 2)
+rankArr = Array{Int64}(undef, 1 ,2, 2, 2)
+
+detectedArr[1,1,1,1] = true
+detectedArr[1,1,1,2] = false
+detectedArr[1,1,2,1] = true
+detectedArr[1,1,2,2] = false
+detectedArr[1,2,1,1] = true
+detectedArr[1,2,1,2] = false
+detectedArr[1,2,2,1] = true
+detectedArr[1,2,2,2] = false
+
+rankArr[1,1,1,1] = 1
+rankArr[1,1,1,2] = 2
+rankArr[1,1,2,1] = 1
+rankArr[1,1,2,2] = 2
+rankArr[1,2,1,1] = 2
+rankArr[1,2,1,2] = 1
+rankArr[1,2,2,1] = 2
+rankArr[1,2,2,2] = 1
+
+@test countRanks(detectedArr, rankArr, 2,2,2) == [-0.7745966692414833, -0.25819888974716115]
+
+
+
+
+
+
+
+
 #Check we can correctly find P(dropout)
 test_dict = Dict("I1" => [1,1,1], "I2" => [5,0,0], "I3" => [1,1,0])
 @test FindPDropout(test_dict, 1.0) == [0.5,(1-15/24), (1-6/15)]

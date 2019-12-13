@@ -4,6 +4,7 @@ using DataFrames
 using Plots, Plots.Measures
 using JLD2
 using DelimitedFiles
+using StatsBase
 
 #Initialise variables
 GeneIsoformRelationships = "data/gencode_human_gene_isoform_relationships.txt"
@@ -12,7 +13,7 @@ NumIsoformsToSimulate = 4
 filteringThreshold = 4
 alpha_vals = [0.45, 0.7, 0.95, 1.2, 1.45]
 beta_vals = reverse(alpha_vals)
-scnorm_counts = ["H1_24_scnorm_counts.txt",
+scnorm_counts = ["H1_24_scnorm_counts.txt"],
 "H1_96_scnorm_counts.txt",
 "H9_24_scnorm_counts.txt",
 "H9_96_scnorm_counts.txt"]
@@ -81,19 +82,19 @@ function make_hist(path, titleArg)
         title = titleArg,
         xlims = (0, 4),
         ylims = (0, 10),
-        ylabel = "Normalised Frequency",
+        ylabel = "Probability Density",
         normalize=:pdf,
         bins = 100,
         axis = (font(100)), titlefontsize=100, yticks = 0:5:10,
         margin = 25mm)
 
-    elseif titleArg == "Real" || titleArg == "alpha=0.45, beta=1.45"
+    elseif titleArg == "Real" #|| titleArg == "alpha=0.45, beta=1.45"
         p1 = histogram(Arr,
         title = titleArg,
         xlims = (0, 4),
         ylims = (0, 10),
         normalize=:pdf,
-        xlabel = "Mean Isoforms per Gene per Cell",
+        xlabel = "Mean No. Isoforms\nper Gene per Cell",
         bins = 100,
         axis = (font(100)), titlefontsize=100, yticks = 0:5:10,
         margin = 25mm)
@@ -109,6 +110,7 @@ function make_hist(path, titleArg)
         axis = (font(100)), titlefontsize=100, yticks = 0:5:10,
         margin = 25mm)
     end
+    vline!([mean(Arr)], color = :black, linewidth = 8)
     return p1
 end
 
@@ -129,9 +131,26 @@ H1_96_2,H1_24_2,
 H1_96_3,H1_24_3,
 H1_96_4,H1_24_4,
 H1_96_real,H1_24_real,
-layout = (5,2), legend = false, size = (500*8, 600*8))
+layout = (5,2), legend = false, size = (400*8, 600*8))
 
 savefig(pA, "figures/figure2/figure2A.png")
+
+Arr = readdlm("figures/figure2_data/H1_96_scnorm_counts.txt_1_isoforms_array.txt")
+
+
+#Untransformed plot
+p_intro = histogram(Arr,
+title = "1 Isoform",
+xlims = (0, 4),
+ylims = (0, 10),using StatsBase
+ylabel = "Probability Density",
+xlabel = "Mean No. Isoforms per Gene per Cell",
+normalize=:pdf,
+bins = 100,
+axis = (font(16)), titlefontsize=16, yticks = 0:5:10,
+legend = false)
+
+savefig(p_intro, "figures/figure2/Introductory_presentation_fig.png")
 
 ################################################################################
 # Panel B
@@ -212,6 +231,9 @@ pB = plot(H1_96[3], H1_24[3],
        H1_96[4], H1_24[4],
         size = (500 * 8, 240 * 8), layout = (2,2), legend = false, margin = 35mm)
 
+@show H1_96[1]
+@show H1_96[2]
+
 savefig(pB, "figures/figure2/figure2B.png")
 
 ################################################################################
@@ -236,18 +258,118 @@ savefig(pC, "figures/figure2/figure2C.png")
 ################################################################################
 # Panel D
 ################################################################################
+function make_hist_MM(path, titleArg)
+    Arr = readdlm(path)
 
-v0 =  make_hist("figures/figure2_data/0.45_1.45_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=0.45, beta=1.45")
-v1 =  make_hist("figures/figure2_data/0.7_1.2_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=0.7, beta=1.2")
-v2 =  make_hist("figures/figure2_data/0.95_0.95_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=0.95, beta=0.95")
-v3 =  make_hist("figures/figure2_data/1.2_0.7_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=1.2, beta=0.7")
-v4 =  make_hist("figures/figure2_data/1.45_0.45_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=1.45, beta=0.45")
+    if (titleArg == "3 Isoforms" &&
+        path == "figures/figure2_data/H1_96_scnorm_counts.txt_3_isoforms_array.txt")
+        #Untransformed plot
+        p1 = histogram(Arr,
+        title = titleArg,
+        xlims = (0, 1.2),
+        ylims = (0, 5),
+        ylabel = "Probability Density",
+        normalize=:pdf,
+        bins = 100,
+        axis = (font(100)), titlefontsize=100, yticks = 0:5:10,
+        margin = 25mm)
+
+    elseif titleArg == "Real" #|| titleArg == "alpha=0.45, beta=1.45"
+        p1 = histogram(Arr,
+        title = titleArg,
+        xlims = (0, 1.2),
+        ylims = (0, 5),
+        normalize=:pdf,
+        xlabel = "Mean No. Isoforms\nper Gene per Cell",
+        bins = 100,
+        axis = (font(100)), titlefontsize=100, yticks = 0:5:10,
+        margin = 25mm)
+
+    else
+        #Untransformed plot
+        p1 = histogram(Arr,
+        title = titleArg,
+        xlims = (0, 1.2),
+        ylims = (0, 5),
+        normalize=:pdf,
+        bins = 100,
+        axis = (font(100)), titlefontsize=100, yticks = 0:5:10,
+        margin = 25mm)
+    end
+    vline!([mean(Arr)], color = :black, linewidth = 8)
+    return p1
+end
+
+v0 =  make_hist_MM("figures/figure2_data/0.45_1.45_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=0.45, beta=1.45")
+v1 =  make_hist_MM("figures/figure2_data/0.7_1.2_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=0.7, beta=1.2")
+v2 =  make_hist_MM("figures/figure2_data/0.95_0.95_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=0.95, beta=0.95")
+v3 =  make_hist_MM("figures/figure2_data/1.2_0.7_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=1.2, beta=0.7")
+v4 =  make_hist_MM("figures/figure2_data/1.45_0.45_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=1.45, beta=0.45")
 
 pD = plot(v4, v3, v2, v1, v0,
        layout = (5,1), legend = false, size = (250*8, 600*8),
        axis = (font(180)), titlefontsize=160, margin = 30mm)
 
 savefig(pD, "figures/figure2/figure2D.png")
+
+############################################################
+# presentation panel D
+############################################################
+
+function make_presentation_hist(path, titleArg, color_in)
+    Arr = readdlm(path)
+
+    if (path == "figures/figure2_data/0.95_0.95_H1_24_scnorm_counts.txt_1_isoforms_array.txt")
+        #Untransformed plot
+        p1 = histogram(Arr,
+        color = palette(:default)[color_in],
+        title = titleArg,
+        xlims = (0, 2),
+        ylims = (0, 10),
+        ylabel = "Probability Density",
+        normalize=:pdf,
+        bins = 100,
+        axis = (font(100)), titlefontsize=100, yticks = 0:5:10,
+        margin = 0mm)
+
+    elseif titleArg == "Real" || titleArg == "alpha=0.45, beta=1.45"
+        p1 = histogram(Arr,
+        color = palette(:default)[color_in],
+        title = titleArg,
+        xlims = (0, 2),
+        ylims = (0, 10),
+        normalize=:pdf,
+        xlabel = "Mean No. Isoforms per Gene per Cell",
+        bins = 100,
+        axis = (font(100)), titlefontsize=100, yticks = 0:5:10,
+        margin = 0mm)
+
+    else
+        #Untransformed plot
+        p1 = histogram(Arr,
+        title = titleArg,
+        color = palette(:default)[color_in],
+        xlims = (0, 2),
+        ylims = (0, 10),
+        normalize=:pdf,
+        bins = 100,
+        axis = (font(100)), titlefontsize=100, yticks = 0:5:10,
+        margin = 0mm)
+    end
+    return p1
+end
+
+v0 =  make_presentation_hist("figures/figure2_data/0.45_1.45_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=0.45, beta=1.45", 1)
+v1 =  make_presentation_hist("figures/figure2_data/0.7_1.2_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=0.7, beta=1.2", 2)
+v2 =  make_presentation_hist("figures/figure2_data/0.95_0.95_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=0.95, beta=0.95", 3)
+v3 =  make_presentation_hist("figures/figure2_data/1.2_0.7_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=1.2, beta=0.7", 4)
+v4 =  make_presentation_hist("figures/figure2_data/1.45_0.45_H1_24_scnorm_counts.txt_1_isoforms_array.txt", "alpha=1.45, beta=0.45", 5)
+
+pD = plot(v4, v3, v2, v1, v0,
+       layout = (5,1), legend = false, size = (250*8, 600*8),
+       axis = (font(160)), titlefontsize=160, margin = 15mm)
+
+savefig(pD, "figures/figure2/presentation_figure2D.png")
 
 # #Doesn't work sad times
 # l = @layout [  grid(7,2){0.66w} [b{0.285h}
@@ -262,3 +384,80 @@ savefig(pD, "figures/figure2/figure2D.png")
 # H1_96[4], H1_24[4],
 # pC,
 # v4, v3, v2, v1, v0, layout = l)
+
+####################################
+# Overlap plots
+####################################
+
+function make_overlap_hist(path, titleArg)
+
+    Arr = readdlm(path)
+
+    if titleArg == "4 Isoforms"
+
+        p1 = histogram(Arr,
+        title = titleArg,
+        color = palette(:default)[2],
+        xlims = (0, 1),
+        ylims = (0, 10),
+        ylabel = "Probability Density",
+        xlabel = "% Overlap with Ground Truth",
+        normalize=:pdf,
+        bins = 100,
+        axis = (font(100)), titlefontsize=100, yticks = 0:5:10,
+        margin = 25mm)
+        vline!([mean(Arr)], color = :black, linewidth = 8)
+        return p1
+
+    else
+
+        p1 = histogram(Arr,
+        title = titleArg,
+        color = palette(:default)[2],
+        xlims = (0, 1),
+        ylims = (0, 10),
+        ylabel = "Probability Density",
+        normalize=:pdf,
+        bins = 100,
+        axis = (font(100)), titlefontsize=100, yticks = 0:5:10,
+        margin = 25mm)
+        vline!([mean(Arr)], color = :black, linewidth = 8)
+        return p1
+    end
+
+
+end
+
+H1_24_1 = make_overlap_hist("figures/figure2_data/H1_24_scnorm_counts.txt_1_isoforms_overlap_array.txt", "1 Isoform")
+H1_24_2 = make_overlap_hist("figures/figure2_data/H1_24_scnorm_counts.txt_2_isoforms_overlap_array.txt", "2 Isoforms")
+H1_24_3 = make_overlap_hist("figures/figure2_data/H1_24_scnorm_counts.txt_3_isoforms_overlap_array.txt", "3 Isoforms")
+H1_24_4 = make_overlap_hist("figures/figure2_data/H1_24_scnorm_counts.txt_4_isoforms_overlap_array.txt", "4 Isoforms")
+
+H1_96_1 = make_overlap_hist("figures/figure2_data/H1_96_scnorm_counts.txt_1_isoforms_overlap_array.txt", "1 Isoform")
+H1_96_2 = make_overlap_hist("figures/figure2_data/H1_96_scnorm_counts.txt_2_isoforms_overlap_array.txt", "2 Isoforms")
+H1_96_3 = make_overlap_hist("figures/figure2_data/H1_96_scnorm_counts.txt_3_isoforms_overlap_array.txt", "3 Isoforms")
+H1_96_4 = make_overlap_hist("figures/figure2_data/H1_96_scnorm_counts.txt_4_isoforms_overlap_array.txt", "4 Isoforms")
+
+pA = plot(H1_96_1,H1_24_1,
+H1_96_2,H1_24_2,
+H1_96_3,H1_24_3,
+H1_96_4,H1_24_4,
+layout = (4,2), legend = false, size = (400*8, 600*8))
+
+savefig(pA, "figures/figure2/figure2_overlap.png")
+
+########################
+# Old 1D overlap hists
+########################
+
+v0 =  make_overlap_hist("figures/figure2_data/0.45_1.45_H1_24_scnorm_counts.txt_1_isoforms_overlap_array.txt", "alpha=0.45, beta=1.45")
+v1 =  make_overlap_hist("figures/figure2_data/0.7_1.2_H1_24_scnorm_counts.txt_1_isoforms_overlap_array.txt", "alpha=0.7, beta=1.2")
+v2 =  make_overlap_hist("figures/figure2_data/0.95_0.95_H1_24_scnorm_counts.txt_1_isoforms_overlap_array.txt", "alpha=0.95, beta=0.95")
+v3 =  make_overlap_hist("figures/figure2_data/1.2_0.7_H1_24_scnorm_counts.txt_1_isoforms_overlap_array.txt", "alpha=1.2, beta=0.7")
+v4 =  make_overlap_hist("figures/figure2_data/1.45_0.45_H1_24_scnorm_counts.txt_1_isoforms_overlap_array.txt", "alpha=1.45, beta=0.45")
+
+pD = plot(v4, v3, v2, v1, v0,
+       layout = (5,1), legend = false, size = (250*8, 600*8),
+       axis = (font(180)), titlefontsize=160, margin = 30mm)
+
+savefig(pD, "figures/figure2/figure2D_overlap.png")

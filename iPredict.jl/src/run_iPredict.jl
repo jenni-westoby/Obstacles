@@ -33,11 +33,11 @@ function parse_commandline()
             arg_type = String
         "--NumIsoformsToSimulate"
             help = "Max number of isoforms to simulate"
-            required = true
+            required = false
             arg_type = Int64
         "--filteringThreshold"
             help = "All genes must express at least this number of isoforms"
-            required = true
+            required = false
             arg_type = Int64
         "--alpha"
             help = "Beta distribution parameter alpha"

@@ -1,0 +1,4 @@
+../iPredict_data/H1_24_scnorm_counts.txt
+../iPredict_data/H1_96_scnorm_counts.txt
+../iPredict_data/H9_24_scnorm_counts.txt
+../iPredict_data/H9_96_scnorm_counts.txt

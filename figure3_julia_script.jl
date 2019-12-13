@@ -59,12 +59,12 @@ end
 
 
 
-# p1 = Plots.plot(df.error, df.mean, markershapes =[:circle, :star5, :x, :square], group = df.NumIsos)
-# savefig(p1, "figures/figure3/mean_scnorm_err.png")
-# p1 = Plots.plot(df.error, df.median, markershapes =[:circle, :star5, :x, :square], group = df.NumIsos)
-# savefig(p1, "figures/figure3/median_scnorm_err.png")
-# p1 = Plots.plot(df.error, df.std, markershapes =[:circle, :star5, :x, :square], group = df.NumIsos)
-# savefig(p1, "figures/figure3/std_scnorm_err.png")
+p1 = Plots.plot(df.error, df.mean, markershapes =[:circle, :star5, :x, :square], group = df.NumIsos)
+savefig(p1, "figures/figure3/mean_scnorm_err.png")
+p1 = Plots.plot(df.error, df.median, markershapes =[:circle, :star5, :x, :square], group = df.NumIsos)
+savefig(p1, "figures/figure3/median_scnorm_err.png")
+p1 = Plots.plot(df.error, df.std, markershapes =[:circle, :star5, :x, :square], group = df.NumIsos)
+savefig(p1, "figures/figure3/std_scnorm_err.png")
 
 
 using DataFrames
@@ -106,6 +106,24 @@ size = (720 * 8, 720 * 8), legend = false, margin = 25mm)
 
 savefig(tmp, "figures/figure3/figure3A.png")
 
+#make a plot for FP=0, FN=0
+Arr = readdlm("figures/figure3_data/0.0_0.0_H1_24_scnorm_counts.txt_1_isoforms_array.txt")
+
+
+#Untransformed plot
+p_intro = histogram(Arr,
+title = "1 Isoform",
+xlims = (0, 4),
+ylims = (0, 5),
+ylabel = "Probability Density",
+xlabel = "Mean No. Isoforms per Gene per Cell",
+normalize=:pdf,
+bins = 100,
+axis = (font(16)), titlefontsize=16, yticks = 0:5,
+legend = false)
+
+savefig(p_intro, "figures/figure3/zero_errors_plot.png")
+
 c = jldopen("figures/figure3_data/means_df.jld2", "r")
 df = c["df"]
 
@@ -134,7 +152,7 @@ end
 
 p1 = plot(both_arr[1], legend = :none, xlabel = "pFP and pFN", ylabel = "mean",
        size = (180 * 8, 180*8),titlefontsize = 80, title = "1 Isoform",
-       linestyle=:solid, linealpha=0.5, linewidth=2*8, axis = font(80), margin = 10mm)
+       linestyle=:solid, linealpha=0.5, linewidth=2*8, axis = font(80), margin = 15mm)
 savefig(p1, "figures/figure3/both_means.png")
 p1 = plot(pFN_arr[1], legend = :none, xlabel = "pFN", ylabel = "mean",
        size = (180 * 8, 180*8),titlefontsize = 80, title = "1 Isoform",
@@ -152,3 +170,40 @@ savefig(p1, "figures/figure3/pFP_means.png")
               "H9 1 million reads"], size = (180 * 8, 180*8),titlefontsize = 50, legendfontsize=80, grid=false,
                   xlims=(-1,-0.5), showaxis=false,linestyle=:solid, linealpha=0.5, linewidth=2*8, xlabel = "", ylabel = "", title="")
 savefig(p1, "figures/figure3/means_legend.png")
+
+#########################
+# overlap
+#########################
+
+function make_hist(path)
+    Arr = readdlm(path)
+
+    #Untransformed plot
+    p1 = histogram(Arr,
+    xlims = (0, 1),
+    ylims = (0, 10),
+    normalize=:pdf,
+    bins = 50,
+    color = palette(:default)[2],
+    axis = (font(80)), titlefontsize=80, yticks = 0:10:10, xticks = 0:1:1,
+    margin = 25mm)
+
+    return p1
+end
+
+error = collect(0:0.1:0.5)
+plot_arr = []
+
+for i in 1:length(error) # i = pFN
+    for j in 1:length(error) # j = pFP
+
+        push!(plot_arr, make_hist("figures/figure3_data/" *
+        string(error[i]) * "_" * string(error[j]) * "_" *
+        "H1_24_scnorm_counts.txt_1_isoforms_overlap_array.txt"))
+    end
+end
+
+tmp = plot(plot_arr..., layout =(6,6),
+size = (720 * 8, 720 * 8), legend = false, margin = 25mm)
+
+savefig(tmp, "figures/figure3/figure3A_overlap.png")

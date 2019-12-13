@@ -20,7 +20,29 @@ function FindRank(InputDict)
         push!(arr, sum(value))
     end
 
-    return ordinalrank(arr)
+    return ordinalrank(arr, rev=true)
+end
+
+function FindRankbyNoCells(InputDict)
+
+    arr = []
+
+    for (key, value) in InputDict
+        push!(arr, sum(value .> 0))
+    end
+
+    return ordinalrank(arr, rev = true)
+end
+
+function FindStd(InputDict)
+
+    arr = []
+
+    for (key, value) in InputDict
+        push!(arr, sum(value .> 0))
+    end
+    @show arr
+    return std(arr)
 end
 
 function FindPObs(InputDict)
@@ -48,6 +70,7 @@ function FindHarmonicMean(numIsoforms)
         harmonicMean += (1/i) * exp(-(1 + i/numIsoforms)^2)
     end
 
+    #@show harmonicMean
     return harmonicMean
 end
 
@@ -100,6 +123,7 @@ function RescaleFreqs(cumulativeFreqs, rank)
         for i in (rank + 1):(length(cumulativeFreqs))
             cumulativeFreqs[i] -= cumulativeFreqs[rank]
         end
+
     end
 
     deleteat!(cumulativeFreqs, rank)
@@ -131,7 +155,22 @@ function GetIsoformChoiceProbabilities(numIsoforms)
         harmonicMean = FindHarmonicMean(numIsoforms)
         frequencies = FindMedianFrequencies(numIsoforms, harmonicMean)
         frequencies = ScaleFrequencies(frequencies)
+        #@show frequencies
         #frequencies = FindCumulativeFrequencies(frequencies)
+    else
+        frequencies = [1.0]
+    end
+    return frequencies
+end
+
+#Wrapper function - only have to do this once for each numIsoforms
+function GetIsoformChoiceProbabilitiesGene(numIsoforms)
+
+    if numIsoforms > 1
+        harmonicMean = FindHarmonicMean(numIsoforms)
+        frequencies = FindMedianFrequencies(numIsoforms, harmonicMean)
+        frequencies = ScaleFrequencies(frequencies)
+        frequencies = FindCumulativeFrequencies(frequencies)
     else
         frequencies = [1.0]
     end
@@ -266,7 +305,10 @@ function Simulate(cumulativeFreqs::Array{Float64, 1}, rankings::Array{Int64, 1},
 
             #Make two indexes. index is for use with rescaled (and shrinking)
             #temporary variable arrays used in this loop
+            tmp = findall(x -> x==choice, tmpRankings)
+
             index = findall(x -> x==choice, tmpRankings)[1]
+
             #ObsExIndex is used for indexing into ObservedExpression and needs
             #to not shrink as the temporary variable arrays shrink
             ObsExIndex = staticRankings[index]
@@ -343,6 +385,47 @@ function pickRandIsoforms( IsoChoiceProbabilities, NumSimulations,
     return IsoChoiceArr
 end
 
+function FindMeanUnifObsProbabilities(numIsoforms, genesList, pObsDict,
+    pDropoutDict, rankingDict)
+
+    numGenes = length(genesList)
+
+    df = DataFrame(Rank=Int64[], pDropout = Float64[], pChoice = Float64[])
+
+    for i in 1:numGenes
+
+        #get dropout info and get pObs info
+        dropoutArr::Array{Float64, 1} = pDropoutDict[genesList[i]]
+        pObsArr::Array{Float64} = pObsDict[genesList[i]]
+
+        #Get pChoices
+        pChoiceArr::Array{Float64} = []
+        for iso in 1:length(pObsArr)
+            pChoice = (pObsArr[iso] - pFP)/ (((1-dropoutArr[iso]) * (1 - pFN)) - pFP)
+
+            #if pChoice >1, set to 1 as pChoice is a probability
+            #I think this sometimes happens for stochastic reasons or
+            #because we have estimated parameters poorly.
+            if pChoice > 1
+                pChoice = 1.0
+           end
+            push!(pChoiceArr, pChoice)
+        end
+
+        newRow = DataFrame(Rank = rankingDict[genesList[i]],
+        pDropout = dropoutArr,
+        pChoice = pChoiceArr)
+
+        append!(df, newRow)
+
+    end
+
+    return df
+end
+
+
+
+
 function PickUnifObsIsoforms(numIsoforms, genesList, pObsDict,
      pDropoutDict, numCells, NumSimulations)
 
@@ -360,7 +443,7 @@ function PickUnifObsIsoforms(numIsoforms, genesList, pObsDict,
              #Get pChoices
              pChoiceArr::Array{Float64} = []
              for iso in 1:length(pObsArr)
-                 pChoice = pObsArr[iso] / (((1-dropoutArr[iso]) * (1 - pFN)) + pFP)
+                 pChoice = abs((pObsArr[iso] - pFP))/ abs((((1-dropoutArr[iso]) * (1 - pFN)) - pFP))
 
                  #if pChoice >1, set to 1 as pChoice is a probability
                  #I think this sometimes happens for stochastic reasons or
@@ -404,7 +487,8 @@ function PickCellVarIsoforms(numIsoforms, genesList, pObsDict,
              #Get pChoices
              pChoiceArr::Array{Float64} = []
              for iso in 1:length(pObsArr)
-                 pChoice = pObsArr[iso] / (((1-dropoutArr[iso]) * (1 - pFN)) + pFP)
+                 #I wonder if this will ever be negative? Might need to find absolute value
+                 pChoice = abs((pObsArr[iso] - pFP))/ abs((((1-dropoutArr[iso]) * (1 - pFN)) - pFP))
 
                  #if pChoice >1, set to 1 as pChoice is a probability
                  #I think this sometimes happens for stochastic reasons or
@@ -551,6 +635,9 @@ function pickIsoforms(IsoChoiceProbabilities, NumSimulations,
             rankArr::Array{Int64, 1} = rankingDict[genesList[i]]
             dropoutArr::Array{Float64, 1} = pDropoutDict[genesList[i]]
 
+            #@show rankArr
+            #@show dropoutArr
+
             #for cell in cells
             for j in 1:numCells
 
@@ -567,10 +654,55 @@ function pickIsoforms(IsoChoiceProbabilities, NumSimulations,
                     IsoChoiceArr[sim,i,j,k] = dropoutArr[index]
                 end
             end
+            #@show index
         end
     end
 
     return IsoChoiceArr
+end
+
+function pickIsoformsReportRank(IsoChoiceProbabilities, NumSimulations,
+    genesList, rankingDict, pDropoutDict, numCells,
+    NumIsoformsToSimulate)
+
+    numGenes = length(genesList) #convenient binding
+    IsoChoiceArr = Array{Float64}(undef, NumSimulations, numGenes,numCells,NumIsoformsToSimulate)
+    RecordedRankArr = IsoChoiceArr = Array{Float64}(undef, NumSimulations, numGenes,numCells,NumIsoformsToSimulate)
+
+    #for gene in genes
+    for sim in 1:NumSimulations
+
+        for i in 1:length(genesList)
+
+            #get ranking info
+            rankArr::Array{Int64, 1} = rankingDict[genesList[i]]
+            dropoutArr::Array{Float64, 1} = pDropoutDict[genesList[i]]
+
+            #@show rankArr
+            #@show dropoutArr
+
+            #for cell in cells
+            for j in 1:numCells
+
+                #Sample NumIsoformsToSimulate from IsoChoiceProbabilities
+                #@show IsoChoiceProbabilities
+                ranks = sample(collect(1:length(IsoChoiceProbabilities)),
+                ProbabilityWeights(IsoChoiceProbabilities),
+                NumIsoformsToSimulate, replace = false)
+
+                #Find the index of the isoform at the chosen ranks, then write
+                #p(dropout) to the appropriate location in the array
+                for k in 1:length(ranks)
+                    index = findall(x -> x==ranks[k], rankArr)[1]
+                    IsoChoiceArr[sim,i,j,k] = dropoutArr[index]
+                    RecordedRankArr[sim, i, j, k] = ranks[k]
+                end
+            end
+            #@show index
+        end
+    end
+
+    return (IsoChoiceArr, RecordedRankArr)
 end
 
 #Make a modified version of this for IsoformDependence model
@@ -678,6 +810,50 @@ function ExpressedErrorsIsoformDependence(readCapturedIsoforms, randIsoChoiceArr
     return expressedDetectedIsoforms
 end
 
+#Negative control simulations
+function negControlSimulation(NumSimulations, genesList, rankingDict, pObsDict,
+    numCells, NumIsoformsToSimulate, filteringThreshold, pDropoutDict,
+    MaxNumIsos)
+
+    #make a 3D array of dims numGenes by numCells by NumIsoforms and fill with
+    #random numbers
+    numGenes = length(genesList) #convenient binding
+    randIsoChoiceArr = rand(NumSimulations, numGenes,numCells,NumIsoformsToSimulate)
+
+    #Do Weibull model of isoform choice
+    local WeibullIsoChoiceProbabilities = Array{Float64}(undef, NumIsoformsToSimulate)
+    WeibullIsoChoiceProbabilities = GetIsoformChoiceProbabilities(filteringThreshold)
+
+    #Pick isoforms
+    IsoChoiceArr = pickIsoforms(WeibullIsoChoiceProbabilities,
+    NumSimulations, genesList, rankingDict, pDropoutDict, numCells,
+    NumIsoformsToSimulate)
+
+    #Do a more than comparison to eliminate dropouts (should be none as pdropout=0)
+    #This line returns false when the random number is less than the probability of dropout
+    readCapturedIsoforms::Array{Bool} = randIsoChoiceArr .>= IsoChoiceArr
+
+    #Find sum of detected isoforms
+    totalExpressedDetected = reshape(sum(readCapturedIsoforms, dims = 4),
+    NumSimulations, numGenes, numCells)
+
+    #Find mean no. isoforms detected per gene per cell
+    MeanIsoformsPerGenePerCell = reshape(mean(totalExpressedDetected, dims = 3),
+    NumSimulations * numGenes)
+
+    return MeanIsoformsPerGenePerCell
+
+end
+
+function FindOverlap(totalExpressedDetected, NumIsoformsToSimulate,
+    NumSimulations, numGenes)
+
+    overlap = totalExpressedDetected ./ NumIsoformsToSimulate
+    meanOverlap = reshape(mean(overlap, dims = 3),
+    NumSimulations * numGenes)
+
+    return meanOverlap
+end
 
 
 
@@ -748,7 +924,9 @@ function globalArraySimulation(NumSimulations, genesList, rankingDict, pObsDict,
 
     #Do a more than comparison to eliminate dropouts
     #This line returns false when the random number is less than the probability of dropout
-    readCapturedIsoforms::Array{Bool} = randIsoChoiceArr .> IsoChoiceArr
+    readCapturedIsoforms::Array{Bool} = randIsoChoiceArr .>= IsoChoiceArr
+    pDropoutArr = reshape(IsoChoiceArr, NumSimulations * numGenes *
+    numCells * NumIsoformsToSimulate)
 
     #Fill with new random numbers
     randIsoChoiceArr = rand(NumSimulations, numGenes,numCells,NumIsoformsToSimulate)
@@ -773,6 +951,9 @@ function globalArraySimulation(NumSimulations, genesList, rankingDict, pObsDict,
     #Find number of expressed detected isoforms per gene per cell
     totalExpressedDetected = reshape(sum(expressedDetectedIsoforms, dims = 4),
     NumSimulations, numGenes, numCells)
+
+    overlapArr = FindOverlap(totalExpressedDetected, NumIsoformsToSimulate,
+    NumSimulations, numGenes)
 
     #Now we need to do quant errors for unexpressed isoforms
     #First, make the biggest array of random numbers we could possibly need
@@ -808,5 +989,136 @@ function globalArraySimulation(NumSimulations, genesList, rankingDict, pObsDict,
     MeanIsoformsPerGenePerCell = reshape(mean(DetectedIsoforms, dims = 3),
     NumSimulations * numGenes)
 
-    return MeanIsoformsPerGenePerCell
+    return (MeanIsoformsPerGenePerCell, overlapArr, pDropoutArr)
+end
+
+#############################################
+# reviewer 2 ranking
+#############################################
+
+function countRanks(detectedIsos, rankArr,
+    numGenes, numCells, NumIsoformsToSimulate)
+
+    spearmans_rho_arr = []
+
+    sim = 1 # gonna assume 1 simulation
+    for gene in 1:numGenes
+
+        ones = 0
+        twos = 0
+        threes = 0
+        fours = 0
+
+        for cell in 1:numCells
+            for iso in 1:NumIsoformsToSimulate
+                if rankArr[sim,gene,cell,iso] == 1 &&
+                    detectedIsos[sim,gene,cell,iso] == true
+
+                    ones += 1
+
+                elseif rankArr[sim,gene,cell,iso] == 2 &&
+                    detectedIsos[sim,gene,cell,iso] == true
+
+                    twos += 1
+
+                elseif rankArr[sim,gene,cell,iso] == 3 &&
+                    detectedIsos[sim,gene,cell,iso] == true
+
+                    threes += 1
+
+                elseif rankArr[sim,gene,cell,iso] == 4 &&
+                    detectedIsos[sim,gene,cell,iso] == true
+
+                    fours += 1
+                else
+                    continue
+                end
+            end
+        end
+
+        if ones == twos == threes == fours
+            continue
+        end
+
+        spearmans_rho = corspearman([1,2,3,4], [ones, twos, threes, fours])
+        push!(spearmans_rho_arr, spearmans_rho)
+    end
+
+    return spearmans_rho_arr
+end
+
+
+
+
+
+
+#Global simulation function using arrays (hopefully faster)
+function rankingSimulation(NumSimulations, genesList, rankingDict, pObsDict,
+    pDropoutDict, numCells, NumIsoformsToSimulate, filteringThreshold,
+    unexpr_dict, MaxNumIsos, error_model, choice_model)
+
+    #@show choice_model
+
+    #make a 3D array of dims numGenes by numCells by NumIsoforms and fill with
+    #random numbers
+    numGenes = length(genesList) #convenient binding
+    randIsoChoiceArr = rand(NumSimulations, numGenes,numCells,NumIsoformsToSimulate)
+    #@show size(randIsoChoiceArr)
+
+    local WeibullIsoChoiceProbabilities = Array{Float64}(undef, NumIsoformsToSimulate)
+    local IsoChoiceProbabilities = Array{Float64}(undef, numGenes, NumIsoformsToSimulate)
+    local IsoChoiceArr = Array{Float64}(undef, NumSimulations, numGenes,
+    numCells, NumIsoformsToSimulate)
+
+    if choice_model == "Weibull"
+        #Get general isoform choice probabilities
+        WeibullIsoChoiceProbabilities = GetIsoformChoiceProbabilities(filteringThreshold)
+
+        #Pick isoforms
+        out = pickIsoformsReportRank(WeibullIsoChoiceProbabilities,
+        NumSimulations, genesList, rankingDict, pDropoutDict, numCells,
+        NumIsoformsToSimulate)
+        IsoChoiceArr = out[1]
+        #@show IsoChoiceArr
+        RecordedRankArr = out[2]
+        #@show RecordedRankArr
+    else
+        throw(ArgumentError("choice_model not recognised."))
+    end
+
+    #Do a more than comparison to eliminate dropouts
+    #This line returns false when the random number is less than the probability of dropout
+    readCapturedIsoforms::Array{Bool} = randIsoChoiceArr .>= IsoChoiceArr
+    pDropoutArr = reshape(IsoChoiceArr, NumSimulations * numGenes *
+    numCells * NumIsoformsToSimulate)
+
+    #Fill with new random numbers
+    randIsoChoiceArr = rand(NumSimulations, numGenes,numCells,NumIsoformsToSimulate)
+
+    local expressedDetectedIsoforms::Array{Bool}
+
+    #Quant errors for expressed isoforms
+    if error_model == "none"
+        expressedDetectedIsoforms = map(QuantErrorsForExpressed,
+        readCapturedIsoforms, randIsoChoiceArr)
+    elseif error_model == "random"
+        expressedDetectedIsoforms = map(RandomQuantErrorsForExpressed,
+        readCapturedIsoforms, randIsoChoiceArr)
+    elseif error_model == "IsoformDependence"
+        expressedDetectedIsoforms = ExpressedErrorsIsoformDependence(
+        readCapturedIsoforms, randIsoChoiceArr, NumSimulations, genesList,
+        numCells, unexpr_dict, NumIsoformsToSimulate, filteringThreshold)
+    else
+        throw(ArgumentError("Unrecognised error_model"))
+    end
+
+    #Find number of expressed detected isoforms per gene per cell
+    #noCellsExpressing = reshape(sum(expressedDetectedIsoforms, dims = 3),
+    #numGenes, NumIsoformsToSimulate) #NumSimulations must always be 1
+
+    spearmans_rho = countRanks(expressedDetectedIsoforms, RecordedRankArr,
+        numGenes, numCells, NumIsoformsToSimulate)
+
+    return spearmans_rho
+
 end
